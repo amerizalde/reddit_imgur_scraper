@@ -2,13 +2,16 @@ import BeautifulSoup as bs
 import re, praw, requests, os, glob, sys
 from sys import argv
 
-imgurUrlPattern = re.compile(r'(http://i.imgur.com/(.*))(\?.*)?')
+IMGUR_URL_PATTERN = re.compile(r'(http://i.imgur.com/(.*))(\?.*)?')
 
 
 def downloadImage(imageUrl, localFileName):
+    if "Pictures" not in os.listdir(os.getcwd()):
+        os.mkdir("Pictures")
+    localFileName = os.getcwd() + "/Pictures/" + localFileName
     try:
         # imgur uses images for layout grids
-        # they are luckily all contain 'layout' in the name
+        # they luckily all contain 'layout' in the name
         if imageUrl.find('layout') == -1:
             response = requests.get(imageUrl)
 
@@ -27,26 +30,35 @@ def downloadImage(imageUrl, localFileName):
         return
 
 def process_imgur_album(submission, subreddit):
+    # a very readable way to get the album id from the URL
     albumId = submission.url[len('http://imgur.com/a/'):]
     htmlSource = requests.get(submission.url).text
     soup = bs.BeautifulSoup(htmlSource)
     matches = soup("img")
+    data_src = 1
+    url = 1
     for match in matches:
-        imageUrl = match.attrs[1][1]
+        imageUrl = match.attrs[data_src][url]
         if imageUrl.startswith('//'):
             # if no schema is supplied in the url, prepend 'http:' to it
+            # the soup is Unicode, so change to u'http:'
             imageUrl = u'http:' + imageUrl
         if '?' in imageUrl:
+            # this is static based on how imgur currently builds it's pages
+            # may need to be changed if imgur changes
             imageFile = imageUrl[imageUrl.rfind('/') + 1:imageUrl.rfind('?')]
         else:
             imageFile = imageUrl[imageUrl.rfind('/') + 1:]
+        # this is static based on how imgur currently builds it's pages
+        # may need to be changed if imgur changes
         localFileName = 'reddit_{}_{}_album_{}_imgur_{}'.format(
             subreddit, submission.id, albumId, imageFile)
         downloadImage(imageUrl, localFileName)
 
 def process_direct_link(submission, subreddit, album="None"):
-    mo = imgurUrlPattern.search(submission.url)
-    imgurFilename = mo.group(2)
+    the_complete_url = IMGUR_URL_PATTERN.search(submission.url)
+    the_image_without_the_url = 2
+    imgurFilename = the_complete_url.group(the_image_without_the_url)
     if '?' in imgurFilename:
         imgurFilename = imgurFilename[:imgurFilename.find('?')]
     localFileName = 'reddit_{}_{}_album_{}_imgur_{}'.format(
@@ -56,9 +68,12 @@ def process_direct_link(submission, subreddit, album="None"):
 def process_imgur_page(submission, subreddit):
     htmlSource = requests.get(submission.url).text
     soup = bs.BeautifulSoup(htmlSource)
-    imageUrl = soup("img")[0].attrs[0][1]
+    src = 0  # the first tuple
+    url = 1  # the second element of the first tuple
+    imageUrl = soup("img")[0].attrs[src][url]
     if imageUrl.startswith('//'):
         # if no schema is supplied in the url, prepend 'http:' to it
+        # soup is Unicode, so change to u'http:'
         imageUrl = u'http:' + imageUrl
     imageId = imageUrl[imageUrl.rfind('/') + 1:imageUrl.rfind('.')]
     if '?' in imageUrl:
