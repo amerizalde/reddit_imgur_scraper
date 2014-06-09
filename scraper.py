@@ -4,7 +4,7 @@ from sys import argv
 
 IMGUR_URL_PATTERN = re.compile(r'(http://i.imgur.com/(.*))(\?.*)?')
 
-
+# TODO : docstrings
 def downloadImage(imageUrl, localFileName):
     if "Pictures" not in os.listdir(os.getcwd()):
         os.mkdir("Pictures")
